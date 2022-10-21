@@ -1,6 +1,8 @@
 import type {
 	SpotifyAlbum,
 	SpotifyAlbumTracks,
+	SpotifyArtist,
+	SpotifyArtistTracks,
 	SpotifyPlaylist,
 	SpotifyPlaylistTracks,
 	SpotifyTokenResponse,
@@ -23,7 +25,7 @@ export class Erelasfy extends Plugin {
 	private BASE_URL = 'https://api.spotify.com/v1';
 	private _search!: (query: string | SearchQuery, requester?: unknown) => Promise<SearchResult>;
 	private regexp =
-		/(?:https:\/\/open\.spotify\.com\/|spotify:)(?:.+)?(track|playlist|album)[\/:]([A-Za-z0-9]+)/;
+		/(?:https:\/\/open\.spotify\.com\/|spotify:)(?:.+)?(track|playlist|album|artist)[\/:]([A-Za-z0-9]+)/;
 
 	public options: ErelasfyOptions;
 	public authorization: string;
@@ -55,6 +57,8 @@ export class Erelasfy extends Plugin {
 			? this.getAlbumTracks
 			: type == 'playlist'
 			? this.getPlaylistTracks
+			: type == 'artist'
+			? this.getArtistTopTracks
 			: undefined;
 	}
 
@@ -69,7 +73,7 @@ export class Erelasfy extends Plugin {
 				const data: Result = await func(id);
 
 				const loadType = type === 'track' ? 'TRACK_LOADED' : 'PLAYLIST_LOADED';
-				const name = ['playlist', 'album'].includes(type) ? data.name || null : null;
+				const name = ['playlist', 'album', 'artist'].includes(type) ? data.name || null : null;
 
 				const tracks = (
 					await Promise.all(
@@ -145,13 +149,36 @@ export class Erelasfy extends Plugin {
 			page++;
 		}
 
-		return { tracks, name: playlist.name, thumbnail: playlist.images[0]?.url };
+		return {
+			tracks,
+			name: playlist.name,
+			thumbnail: playlist.images.sort((a, b) => b.width - a.width)[0]?.url
+		};
+	}
+
+	private async getArtistTopTracks(id: string): Promise<Result> {
+		const artist = await this.makeRequest<SpotifyArtist>(`/artists/${id}`);
+		const playlist = await this.makeRequest<SpotifyArtistTracks>(
+			`/artists/${id}/top-tracks?market=ES`
+		);
+
+		const tracks = playlist.tracks
+			.filter(Erelasfy.filterNullOrUndefined)
+			.map(x => this.buildUnresolved(x));
+
+		return {
+			tracks,
+			name: `${artist.name}: Popular`,
+			thumbnail: artist.images.sort((a, b) => b.width - a.width)[0]?.url
+		};
 	}
 
 	private async makeRequest<T>(endpoint: string): Promise<T> {
 		const res = await axios({
 			method: 'GET',
-			url: `${this.BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`,
+			url: endpoint.startsWith('https://')
+				? endpoint
+				: `${this.BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`,
 			headers: {
 				Authorization: this.token
 			}
@@ -199,7 +226,7 @@ export class Erelasfy extends Plugin {
 				uri: track.external_urls.spotify,
 				length: track.duration_ms,
 				thumbnail:
-					track.album?.images[0]?.url ||
+					track.album?.images.sort((x, y) => y.width - x.width)[0]?.url ||
 					'https://m.media-amazon.com/images/I/61T60YWIp3L._SS500_.jpg',
 				isrc: track.external_ids?.isrc
 			},
@@ -234,7 +261,9 @@ export class Erelasfy extends Plugin {
 			}
 		);
 
-		if (!data.tracks.length) {
+		let lavatrack = data.tracks[0]!;
+
+		if (!data.tracks.length && !this.options.isrcOnly) {
 			const ns = new URLSearchParams({
 				identifier: `ytsearch:${track.info.title} ${track.info.author} audio`
 			});
@@ -250,10 +279,8 @@ export class Erelasfy extends Plugin {
 				}
 			);
 
-			return data.tracks[0];
+			lavatrack = data.tracks[0]!;
 		}
-
-		let lavatrack = data.tracks[0]!;
 
 		if (lavatrack) {
 			lavatrack.info = {
@@ -267,7 +294,7 @@ export class Erelasfy extends Plugin {
 					'https://upload.wikimedia.org/wikipedia/commons/3/3c/No-album-art.png',
 				length: lavatrack.info.length || track.info.length
 			};
-		}
+		} else return undefined;
 
 		return Object.freeze(lavatrack);
 	}
@@ -275,6 +302,28 @@ export class Erelasfy extends Plugin {
 	public static filterNullOrUndefined(value: unknown): value is unknown {
 		return typeof value !== 'undefined' ? value !== null : typeof value !== 'undefined';
 	}
+}
+
+export async function getSpotifyToken(clientId: string, clientSecret: string) {
+	const {
+		data: { access_token, expires_in }
+	}: { data: SpotifyTokenResponse } = await axios({
+		method: 'POST',
+		url: 'https://accounts.spotify.com/api/token',
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded',
+			Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
+		},
+		params: {
+			grant_type: 'client_credentials'
+		}
+	}).catch(() => ({ data: { access_token: null, expires_in: null } }));
+
+	if (!access_token || !expires_in) {
+		throw new Error('Invalid Spotify client.');
+	}
+
+	return { token: access_token, expires: expires_in };
 }
 
 export interface ErelasfyOptions {
@@ -286,6 +335,8 @@ export interface ErelasfyOptions {
 	playlistLimit?: number;
 	/** Amount of pages to load, each page having 50 tracks. */
 	albumLimit?: number;
+	/** Fail if there is not any result when searching with ISRC? (more precise) */
+	isrcOnly?: boolean;
 }
 
 export interface UnresolvedTrack {

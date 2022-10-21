@@ -1,6 +1,6 @@
 {
 	"name": "erelasfy",
-	"version": "1.1.1-docs",
+	"version": "1.1.7-dev.2",
 	"description": "A plugin for erela.js to play music from spotify",
 	"main": "dist/index.js",
 	"typings": "types/index.d.ts",
@@ -25,5 +25,9 @@
 	"dependencies": {
 		"@drgatoxd/erelajs": "^1.4.1",
 		"axios": "^0.27.2"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/drgatoxd/erelasfy.git"
 	}
 }

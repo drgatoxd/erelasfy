@@ -83,6 +83,24 @@ export interface Artist {
 	uri: string;
 }
 
+export interface SpotifyArtist {
+	external_urls: {
+		spotify: string;
+	};
+	followers: {
+		href: string | null;
+		total: number;
+	};
+	genres: string[];
+	href: string;
+	id: string;
+	images: SpotifyArts[];
+	name: string;
+	popularity: string;
+	type: 'artist';
+	uri: string;
+}
+
 export interface SpotifyAlbumTracks {
 	items: SpotifyPartialTrack[];
 	next: string | null;
@@ -98,4 +116,8 @@ export interface SpotifyPlaylist {
 	name: string;
 	tracks: SpotifyPlaylistTracks;
 	images: SpotifyArts[];
+}
+
+export interface SpotifyArtistTracks {
+	tracks: SpotifyTrack[];
 }

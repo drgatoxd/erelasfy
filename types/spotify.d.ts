@@ -14,6 +14,7 @@ export declare class Erelasfy extends Plugin {
     private getTrack;
     private getAlbumTracks;
     private getPlaylistTracks;
+    private getArtistTopTracks;
     private makeRequest;
     private renewToken;
     private renew;
@@ -21,11 +22,16 @@ export declare class Erelasfy extends Plugin {
     private resolve;
     static filterNullOrUndefined(value: unknown): value is unknown;
 }
+export declare function getSpotifyToken(clientId: string, clientSecret: string): Promise<{
+    token: string;
+    expires: number;
+}>;
 export interface ErelasfyOptions {
     clientId: string;
     clientSecret: string;
     playlistLimit?: number;
     albumLimit?: number;
+    isrcOnly?: boolean;
 }
 export interface UnresolvedTrack {
     info: {

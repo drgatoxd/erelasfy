@@ -2,6 +2,8 @@
 
 A simple plugin for [erela.js](https://npmjs.com/erela.js) package to play Spotify music **and retrieve Spotify metadata to the track(s)**.
 
+Erelasfy can play Spotify tracks, albums, playlists and popular artist tracks.
+
 ## Installation
 
 ```bash
@@ -37,6 +39,7 @@ const manager = new Manager({
 	]
 });
 
+// now you can play from spotify with an spotify url
 manager.search('https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC');
 ```
 
